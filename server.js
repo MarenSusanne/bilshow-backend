@@ -3,9 +3,15 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 require('dotenv').config();
+const cors = require("cors");
+
+
+
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "https://bilshow-voting.vercel.app" // din frontend-URL
+}));
 app.use(bodyParser.json());
 
 const pool = new Pool({
