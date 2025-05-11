@@ -17,7 +17,19 @@ const pool = new Pool({
 
 // 🎯 POST /vote – brukeren stemmer
 app.post('/vote', async (req, res) => {
-  const { contestantId, fingerprint, ipAddress } = req.body;
+  const { carName, fingerprint, ipAddress } = req.body;
+
+// Finn bil basert på navnet (f.eks. case-insensitive match)
+const car = await pool.query(
+  'SELECT id FROM contestants WHERE name ILIKE $1',
+  [carName]
+);
+
+if (car.rows.length === 0) {
+  return res.status(404).json({ error: 'Fant ikke bil med dette navnet' });
+}
+
+const contestantId = car.rows[0].id;
 
   try {
     const existing = await pool.query(
