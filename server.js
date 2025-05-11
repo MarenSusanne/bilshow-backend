@@ -19,28 +19,37 @@ const pool = new Pool({
 app.post('/vote', async (req, res) => {
   const { carName, fingerprint, ipAddress } = req.body;
 
-// Finn bil basert på navnet (f.eks. case-insensitive match)
-const car = await pool.query(
-  'SELECT id FROM contestants WHERE name ILIKE $1',
-  [carName]
-);
-
-if (car.rows.length === 0) {
-  return res.status(404).json({ error: 'Fant ikke bil med dette navnet' });
-}
-
-const contestantId = car.rows[0].id;
-
   try {
-    const existing = await pool.query(
+    // Har brukeren allerede stemt?
+    const existingVote = await pool.query(
       'SELECT * FROM votes WHERE fingerprint = $1 OR ip_address = $2',
       [fingerprint, ipAddress]
     );
 
-    if (existing.rows.length > 0) {
-      return res.status(403).json({ error: 'Du har allerede stemt!' });
+    if (existingVote.rows.length > 0) {
+      return res.status(400).json({ error: 'Du har allerede stemt.' });
     }
 
+    // Forsøk å finne bilen (case-insensitive)
+    let result = await pool.query(
+      'SELECT id FROM contestants WHERE name ILIKE $1',
+      [carName]
+    );
+
+    let contestantId;
+
+    if (result.rows.length > 0) {
+      contestantId = result.rows[0].id;
+    } else {
+      // ❗️Ingen bil funnet – legg den til
+      const insert = await pool.query(
+        'INSERT INTO contestants (name) VALUES ($1) RETURNING id',
+        [carName]
+      );
+      contestantId = insert.rows[0].id;
+    }
+
+    // Registrer stemmen
     await pool.query(
       'INSERT INTO votes (contestant_id, fingerprint, ip_address) VALUES ($1, $2, $3)',
       [contestantId, fingerprint, ipAddress]
@@ -48,10 +57,11 @@ const contestantId = car.rows[0].id;
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Noe gikk galt med stemmegivning.' });
+    console.error('Feil ved stemmegivning:', err);
+    res.status(500).json({ error: 'Noe gikk galt på serveren.' });
   }
 });
+
 
 // GET /contestants – henter deltakerne fra Supabase og sender til frontend
 app.get('/results', async (req, res) => {
