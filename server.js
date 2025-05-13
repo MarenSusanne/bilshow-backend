@@ -35,10 +35,12 @@ app.post('/vote', async (req, res) => {
       return res.status(400).json({ error: 'Du har allerede stemt.' });
     }
 
+    const cleanedName = carName.trim().toLowerCase();
+
     // Forsøk å finne bilen (case-insensitive)
     let result = await pool.query(
       'SELECT id FROM contestants WHERE name ILIKE $1',
-      [carName]
+      [cleanedName]
     );
 
     let contestantId;
@@ -49,7 +51,7 @@ app.post('/vote', async (req, res) => {
       // ❗️Ingen bil funnet – legg den til
       const insert = await pool.query(
         'INSERT INTO contestants (name) VALUES ($1) RETURNING id',
-        [carName]
+        [cleanedName]
       );
       contestantId = insert.rows[0].id;
     }
@@ -90,6 +92,33 @@ app.get('/results', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Feil ved henting av resultater.' });
+  }
+});
+
+// ✅ Versjonshåndtering
+let currentVoteVersion = 1;
+
+// 📡 GET /vote-version – lar frontend sjekke om versjon har endret seg
+app.get("/vote-version", (req, res) => {
+  res.json({ version: currentVoteVersion });
+});
+
+// 🔁 POST /reset-votes – sletter alle stemmer og oppdaterer versjon
+app.post("/reset-votes", async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const expected = `Bearer ${process.env.ADMIN_SECRET}`;
+
+  if (authHeader !== expected) {
+    return res.status(401).json({ error: 'Ikke autorisert' });
+  }
+
+  try {
+    await pool.query("DELETE FROM votes");
+    currentVoteVersion++;
+    res.json({ success: true, newVersion: currentVoteVersion });
+  } catch (err) {
+    console.error("Feil ved sletting av stemmer:", err);
+    res.status(500).json({ error: "Kunne ikke slette stemmer." });
   }
 });
 
