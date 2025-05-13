@@ -9,7 +9,9 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors({
-  origin: "https://bilshow-voting.vercel.app" // din frontend-URL
+  origin: ["https://bilshow-voting.vercel.app", "http://localhost:3000"],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(bodyParser.json());
 
