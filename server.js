@@ -116,11 +116,12 @@ app.post("/reset-votes", async (req, res) => {
 
   try {
     await pool.query("DELETE FROM votes");
+    await pool.query("DELETE FROM contestants");
     currentVoteVersion++;
     res.json({ success: true, newVersion: currentVoteVersion });
   } catch (err) {
-    console.error("Feil ved sletting av stemmer:", err);
-    res.status(500).json({ error: "Kunne ikke slette stemmer." });
+    console.error("Feil ved nullstilling:", err);
+    res.status(500).json({ error: "Kunne ikke nullstille databasen." });
   }
 });
 
